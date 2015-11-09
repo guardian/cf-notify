@@ -1,0 +1,102 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "cf notify stack",
+    "Parameters": {
+        "Bucket": {
+            "Description": "S3 bucket to locate lambda function (cf-notify-$ENVIRONMENT.zip)",
+            "Type": "String"
+        },
+        "Environment": {
+            "Description": "Environment name",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "CFNotifyRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "lambda.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "CFNotifyPolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "cloudformation:DescribeStackResources"
+                                    ],
+                                    "Resource": "arn:aws:cloudformation:*:*:*/*/*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "CFNotifyTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": { "Fn::GetAtt": [ "CFNotifyFunction", "Arn" ] },
+                        "Protocol": "lambda"
+                    }
+                ]
+            }
+        },
+        "CFNotifyFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Description" : "Lambda function to post CF updates to Slack",
+                "Handler": "lambda_notify.lambda_handler",
+                "Role": {
+                    "Fn::GetAtt": [ "CFNotifyRole", "Arn" ]
+                },
+                "Code": {
+                    "S3Bucket": { "Ref": "Bucket" },
+                    "S3Key": { "Fn::Join": [ "", [ "cf-notify-", { "Ref": "Environment" }, ".zip" ] ] }
+                },
+                "Runtime": "python2.7",
+                "Timeout": "30"
+            }
+        },
+        "CFNotifyInvokePermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName" : { "Ref" : "CFNotifyFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "sns.amazonaws.com",
+                "SourceArn": { "Ref": "CFNotifyTopic" }
+            }
+        }
+    },
+    "Outputs": {
+        "CFNotifyEventSource": {
+            "Description": "ARN of CF SNS Topic",
+            "Value": { "Ref": "CFNotifyTopic" }
+        }
+    }
+}
