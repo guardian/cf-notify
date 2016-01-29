@@ -1,8 +1,10 @@
 import json
 import shlex
+import urllib
 import urllib2
 import slack
 import boto3
+import re
 from itertools import groupby
 
 # Mapping CloudFormation status codes to colors for Slack message attachments
@@ -34,9 +36,6 @@ DESCRIBE_STACK_STATUS = [
 
 # List of properties from ths SNS message that will be included in a Slack message
 SNS_PROPERTIES_FOR_SLACK = [
-    'StackId',
-    'ResourceStatus',
-    'ResourceType',
     'Timestamp',
     'StackName',
 ]
@@ -65,10 +64,13 @@ def get_stack_update_message(cf_message):
     if cf_message['ResourceStatus'] in DESCRIBE_STACK_STATUS:
         attachments.append(get_stack_summary_attachment(cf_message['StackName']))
 
+    stack_url = get_stack_url(cf_message['StackId'])
+
     message = {
         'icon_emoji': ':cloud:',
         'username': 'cf-bot',
-        'text': 'Cloud Formation stack change in {}'.format(cf_message['StackName']),
+        'text': 'Stack: {stack} has entered status: {status} <{link}|(view in web console)>'.format(
+                stack=cf_message['StackName'], status=cf_message['ResourceStatus'], link=stack_url),
         'attachments': attachments
     }
 
@@ -107,3 +109,21 @@ def get_stack_summary_attachment(stack_name):
         'fields': [{'title': 'Type {}'.format(k), 'value': 'Total {}'.format(v), 'short': True}
                    for k, v in resource_count.iteritems()]
     }
+
+
+def get_stack_region(stack_id):
+    regex = re.compile('arn:aws:cloudformation:(?P<region>[a-z]{2}-[a-z]{4}-[1-2]{1})')
+    return regex.match(stack_id).group('region')
+
+
+def get_stack_url(stack_id):
+    region = get_stack_region(stack_id)
+
+    query = {
+        'filter': 'active',
+        'tab': 'events',
+        'stackId': stack_id
+    }
+
+    return ('https://{region}.console.aws.amazon.com/cloudformation/home?region={region}#/stacks?{query}'
+            .format(region=region, query=urllib.urlencode(query)))
