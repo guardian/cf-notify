@@ -26,17 +26,6 @@ for more information on notification ARNs.
 To setup CF Notify, we need to do the following.
 
 ### Prerequisites
-
-CF Notify has two prerequisites: a S3 Bucket and a Slack incoming webhook.
-
-#### S3 Bucket
-You can use a pre-existing bucket in your account, however, to maintain isolation, it's generally best to create a bucket:
-
-```sh
-BUCKET="cf-notify-`pwgen -1 --no-capitalize 20`"
-aws s3 mb "s3://$BUCKET"
-```
-
 #### Slack incoming webhook
 You can create an incoming webhook [here](https://my.slack.com/services/new/incoming-webhook/).
 
@@ -46,42 +35,21 @@ You can create an incoming webhook [here](https://my.slack.com/services/new/inco
 This is done using the script [deploy.sh](./deploy.sh).
 
 ```sh
-./deploy.sh $ENV $BUCKET $WEBHOOK [$CHANNEL]
+./deploy.sh $CHANNEL $BUCKET $WEBHOOK
 ```
 
 Where:
- - ENV is the environment of the Stack we are monitoring, e.g. DEV, TEST, PROD. It will be used in the naming of the Lambda artifact file stored in S3.
- - BUCKET is the S3 bucket to store the Lambda artifact.
+ - CHANNEL is the Slack channel or user to send messages to. It will be used in the naming of the Lambda artifact file stored in S3.
  - WEBHOOK is the Web Hook URL of an Incoming Web Hook (see https://api.slack.com/incoming-webhooks).
- - CHANNEL is optional and is the Slack channel or user to send messages to. Defaults to the channel chosen when the webhook was created.
 
-If you don't want to send messages to the channel of the webhook, set `$CHANNEL` as another channel or user. For example `#general` or `@foo`.
-This is useful if you want to setup CF Notify for your own DEV stack. In this case, you'd want to set `$ENV` as your AWS IAM name:
-
-```sh
-ENV="DEV-`aws iam get-user | jq '.User.UserName' | tr -d '"'`"
-```
-
-`deploy.sh` will create a zip file and upload it to `s3://$BUCKET/cf-notify-$ENV.zip`.
-
-
-### Create CF Notify Stack
-
-Create a Stack using the [template](./cf-notify.json).
-
-```sh
-aws cloudformation create-stack --template-body file://cf-notify.json \
-    --stack-name cf-notify-$ENV \
-    --capabilities CAPABILITY_IAM \
-    --parameters ParameterKey=Bucket,ParameterValue=$BUCKET ParameterKey=Environment,ParameterValue=$ENV
-```
+`deploy.sh` will create a zip file and upload it to S3 and also create a cloud formation stack using the [template](./cf-notify.json).
 
 ## Usage
 
-Once setup is complete, all you need to do now is set the notification ARN when you update your Cloud Formation stack:
+Once setup is complete, all you need to do now is set the notification ARN when you update any Cloud Formation stack:
 
 ```sh
-SNS_ARN=`aws cloudformation describe-stacks --stack-name cf-notify-$ENV | jq ".Stacks[].Outputs[].OutputValue"  | tr -d '"'`
+SNS_ARN=`aws cloudformation describe-stacks --stack-name cf-notify-$CHANNEL | jq ".Stacks[].Outputs[].OutputValue"  | tr -d '"'`
 
 aws cloudformation [create-stack|update-stack|delete-stack] --notification-arns $SNS_ARN
 ```
