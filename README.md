@@ -35,7 +35,7 @@ You can create an incoming webhook [here](https://my.slack.com/services/new/inco
 This is done using the script [deploy.sh](./deploy.sh).
 
 ```sh
-./deploy.sh $CHANNEL $BUCKET $WEBHOOK
+./deploy.sh $CHANNEL $WEBHOOK
 ```
 
 Where:
