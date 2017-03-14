@@ -49,35 +49,38 @@ fi
 CHANNEL_NAME=`echo ${CHANNEL:1} | tr '[:upper:]' '[:lower:]'`
 
 echo 'Creating bucket'
-BUCKET="cf-notify-$CHANNEL_NAME-`pwgen -1 --no-capitalize 5`"
+BUCKET="cf-notify-`pwgen -1 --no-capitalize 5`"
 echo $BUCKET
 aws s3 mb "s3://$BUCKET" --profile $PROFILE
 echo "Bucket $BUCKET created"
 
 
 echo 'Creating lambda zip artifact'
-cat > slack.py <<EOL
-WEBHOOK='$WEBHOOK'
-CHANNEL='$CHANNEL'
+
+if [ ! -f slack.py ]; then
+    cat > slack.py <<EOL
+    WEBHOOK='$WEBHOOK'
+    CHANNEL='$CHANNEL'
+    CUSTOM_CHANNELS={}
 EOL
+fi
 
 zip cf-notify.zip lambda_notify.py slack.py
 echo 'Lambda artifact created'
 
 
 echo 'Moving lambda artifact to S3'
-aws s3 cp cf-notify.zip s3://$BUCKET/cf-notify-$CHANNEL_NAME.zip --profile $PROFILE
+aws s3 cp cf-notify.zip s3://$BUCKET/cf-notify.zip --profile $PROFILE
 
-rm slack.py
 rm cf-notify.zip
 echo 'Lambda artifact moved'
 
 echo 'Creating stack'
 aws cloudformation create-stack \
     --template-body file://cf-notify.json \
-    --stack-name cf-notify-$CHANNEL_NAME \
+    --stack-name cf-notify \
     --capabilities CAPABILITY_IAM \
-    --parameters ParameterKey=Bucket,ParameterValue=$BUCKET ParameterKey=Channel,ParameterValue=$CHANNEL_NAME \
+    --parameters ParameterKey=Bucket,ParameterValue=$BUCKET \
     --profile $PROFILE
 
 if [[ $? != 0 ]];
