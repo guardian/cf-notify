@@ -74,10 +74,21 @@ def get_stack_update_message(cf_message):
         'attachments': attachments
     }
 
-    if slack.CHANNEL:
-        message['channel'] = slack.CHANNEL
+    channel = get_channel(cf_message['StackName'])
+
+    if channel:
+        message['channel'] = channel
 
     return message
+
+
+def get_channel(stack_name):
+    default = slack.CHANNEL if hasattr(slack, 'CHANNEL') else None
+
+    if hasattr(slack, 'CUSTOM_CHANNELS'):
+        return slack.CUSTOM_CHANNELS.get(stack_name, default)
+
+    return default
 
 
 def get_stack_update_attachment(cf_message):
