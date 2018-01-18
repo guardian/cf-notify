@@ -123,7 +123,7 @@ def get_stack_summary_attachment(stack_name):
 
 
 def get_stack_region(stack_id):
-    regex = re.compile('arn:aws:cloudformation:(?P<region>[a-z]{2}-[a-z]{4,9}-[1-2]{1})')
+    regex = re.compile('arn:aws:cloudformation:(?P<region>[a-z]{2}-[a-z]{4,9}-[1-3]{1})')
     return regex.match(stack_id).group('region')
 
 
