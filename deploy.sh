@@ -59,9 +59,9 @@ echo 'Creating lambda zip artifact'
 
 if [ ! -f slack.py ]; then
     cat > slack.py <<EOL
-    WEBHOOK='$WEBHOOK'
-    CHANNEL='$CHANNEL'
-    CUSTOM_CHANNELS={}
+WEBHOOK='$WEBHOOK'
+CHANNEL='$CHANNEL'
+CUSTOM_CHANNELS={}
 EOL
 fi
 
